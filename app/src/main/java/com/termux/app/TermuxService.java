@@ -143,12 +143,10 @@ public final class TermuxService extends Service implements AppShell.AppShellCli
                     actionStopService();
                     break;
                 case TERMUX_SERVICE.ACTION_WAKE_LOCK:
-                case "com.termux.service_wake_lock":
                     Logger.logDebug(LOG_TAG, "ACTION_WAKE_LOCK intent received");
                     actionAcquireWakeLock();
                     break;
                 case TERMUX_SERVICE.ACTION_WAKE_UNLOCK:
-                case "com.termux.service_wake_unlock":
                     Logger.logDebug(LOG_TAG, "ACTION_WAKE_UNLOCK intent received");
                     actionReleaseWakeLock(true);
                     break;
