@@ -15,6 +15,13 @@ import android.os.Handler;
 import android.os.IBinder;
 import android.os.PowerManager;
 
+import android.graphics.Color;
+import android.graphics.PixelFormat;
+import android.provider.Settings;
+import android.view.Gravity;
+import android.view.View;
+import android.view.WindowManager;
+
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
@@ -101,6 +108,10 @@ public final class TermuxService extends Service implements AppShell.AppShellCli
     /** The wake lock and wifi lock are always acquired and released together. */
     private PowerManager.WakeLock mWakeLock;
     private WifiManager.WifiLock mWifiLock;
+
+    /** Invisible 1x1 KeepAlive WindowManager overlay to prevent Android OS / OEM process killing. */
+    private View mInvisibleOverlayView;
+    private WindowManager mWindowManager;
 
     /** If the user has executed the {@link TERMUX_SERVICE#ACTION_STOP_SERVICE} intent. */
     boolean mWantsToStop = false;
@@ -330,6 +341,8 @@ public final class TermuxService extends Service implements AppShell.AppShellCli
             PermissionUtils.requestDisableBatteryOptimizations(this);
         }
 
+        mHandler.post(this::acquireInvisibleOverlay);
+
         updateNotification();
 
         Logger.logDebug(LOG_TAG, "WakeLocks acquired successfully");
@@ -355,10 +368,64 @@ public final class TermuxService extends Service implements AppShell.AppShellCli
             mWifiLock = null;
         }
 
+        mHandler.post(this::releaseInvisibleOverlay);
+
         if (updateNotification)
             updateNotification();
 
         Logger.logDebug(LOG_TAG, "WakeLocks released successfully");
+    }
+
+    /** Attach an invisible 1x1 transparent WindowManager overlay view to classify the process as TOP overlay. */
+    private void acquireInvisibleOverlay() {
+        if (mInvisibleOverlayView != null) return;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) {
+            Logger.logDebug(LOG_TAG, "Cannot acquire invisible overlay: SYSTEM_ALERT_WINDOW permission not granted");
+            return;
+        }
+
+        try {
+            mWindowManager = (WindowManager) getSystemService(Context.WINDOW_SERVICE);
+            if (mWindowManager == null) return;
+
+            mInvisibleOverlayView = new View(this);
+            mInvisibleOverlayView.setBackgroundColor(Color.TRANSPARENT);
+
+            int layoutType = (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
+                ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+                : WindowManager.LayoutParams.TYPE_PHONE;
+
+            WindowManager.LayoutParams params = new WindowManager.LayoutParams(
+                1, 1,
+                layoutType,
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+                    | WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
+                    | WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+                PixelFormat.TRANSLUCENT
+            );
+            params.gravity = Gravity.TOP | Gravity.START;
+            params.x = 0;
+            params.y = 0;
+
+            mWindowManager.addView(mInvisibleOverlayView, params);
+            Logger.logDebug(LOG_TAG, "Invisible 1x1 KeepAlive WindowManager overlay attached successfully");
+        } catch (Exception e) {
+            Logger.logStackTrace(LOG_TAG, e);
+        }
+    }
+
+    /** Remove the invisible 1x1 transparent WindowManager overlay view. */
+    private void releaseInvisibleOverlay() {
+        if (mInvisibleOverlayView != null && mWindowManager != null) {
+            try {
+                mWindowManager.removeView(mInvisibleOverlayView);
+                Logger.logDebug(LOG_TAG, "Invisible KeepAlive WindowManager overlay removed");
+            } catch (Exception e) {
+                Logger.logStackTrace(LOG_TAG, e);
+            }
+            mInvisibleOverlayView = null;
+            mWindowManager = null;
+        }
     }
 
     /** Process {@link TERMUX_SERVICE#ACTION_SERVICE_EXECUTE} intent to execute a shell command in
