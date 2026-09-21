@@ -71,6 +71,40 @@ public class RunCommandService extends Service {
         Error error;
         String errmsg;
 
+        String action = intent.getAction();
+        if (TERMUX_SERVICE.ACTION_WAKE_LOCK.equals(action) || "com.termux.service_wake_lock".equals(action)) {
+            Intent wakeIntent = new Intent(TERMUX_SERVICE.ACTION_WAKE_LOCK);
+            wakeIntent.setClass(this, TermuxService.class);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                this.startForegroundService(wakeIntent);
+            } else {
+                this.startService(wakeIntent);
+            }
+            return stopService();
+        }
+
+        if (TERMUX_SERVICE.ACTION_WAKE_UNLOCK.equals(action) || "com.termux.service_wake_unlock".equals(action)) {
+            Intent unlockIntent = new Intent(TERMUX_SERVICE.ACTION_WAKE_UNLOCK);
+            unlockIntent.setClass(this, TermuxService.class);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                this.startForegroundService(unlockIntent);
+            } else {
+                this.startService(unlockIntent);
+            }
+            return stopService();
+        }
+
+        if (TERMUX_SERVICE.ACTION_STOP_SERVICE.equals(action) || "com.termux.service_stop".equals(action)) {
+            Intent stopIntent = new Intent(TERMUX_SERVICE.ACTION_STOP_SERVICE);
+            stopIntent.setClass(this, TermuxService.class);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                this.startForegroundService(stopIntent);
+            } else {
+                this.startService(stopIntent);
+            }
+            return stopService();
+        }
+
         // If invalid action passed, then just return
         if (!RUN_COMMAND_SERVICE.ACTION_RUN_COMMAND.equals(intent.getAction())) {
             errmsg = this.getString(R.string.error_run_command_service_invalid_intent_action, intent.getAction());
@@ -240,6 +274,15 @@ public class RunCommandService extends Service {
             execIntent.putExtra(TERMUX_SERVICE.EXTRA_RESULT_FILE_OUTPUT_FORMAT, executionCommand.resultConfig.resultFileOutputFormat);
             execIntent.putExtra(TERMUX_SERVICE.EXTRA_RESULT_FILE_ERROR_FORMAT, executionCommand.resultConfig.resultFileErrorFormat);
             execIntent.putExtra(TERMUX_SERVICE.EXTRA_RESULT_FILES_SUFFIX, executionCommand.resultConfig.resultFilesSuffix);
+        }
+
+        boolean acquireWakeLock = intent.getBooleanExtra("com.termux.RUN_COMMAND_WAKE_LOCK", false)
+            || intent.getBooleanExtra("com.termux.RUN_COMMAND_KEEP_ALIVE", false)
+            || intent.getBooleanExtra("com.termux.execute.wake_lock", false)
+            || intent.getBooleanExtra("com.termux.execute.keep_alive", false);
+        if (acquireWakeLock) {
+            execIntent.putExtra("com.termux.RUN_COMMAND_WAKE_LOCK", true);
+            execIntent.putExtra("com.termux.execute.wake_lock", true);
         }
 
         // Start TERMUX_SERVICE and pass it execution intent

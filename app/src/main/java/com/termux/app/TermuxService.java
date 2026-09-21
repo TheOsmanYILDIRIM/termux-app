@@ -143,12 +143,21 @@ public final class TermuxService extends Service implements AppShell.AppShellCli
                     actionStopService();
                     break;
                 case TERMUX_SERVICE.ACTION_WAKE_LOCK:
+                case "com.termux.service_wake_lock":
                     Logger.logDebug(LOG_TAG, "ACTION_WAKE_LOCK intent received");
                     actionAcquireWakeLock();
                     break;
                 case TERMUX_SERVICE.ACTION_WAKE_UNLOCK:
+                case "com.termux.service_wake_unlock":
                     Logger.logDebug(LOG_TAG, "ACTION_WAKE_UNLOCK intent received");
                     actionReleaseWakeLock(true);
+                    break;
+                case "com.termux.service_headless_server":
+                    Logger.logDebug(LOG_TAG, "com.termux.service_headless_server intent received");
+                    actionAcquireWakeLock();
+                    if (intent.getData() != null) {
+                        actionServiceExecute(intent);
+                    }
                     break;
                 case TERMUX_SERVICE.ACTION_SERVICE_EXECUTE:
                     Logger.logDebug(LOG_TAG, "ACTION_SERVICE_EXECUTE intent received");
@@ -360,6 +369,14 @@ public final class TermuxService extends Service implements AppShell.AppShellCli
         if (intent == null) {
             Logger.logError(LOG_TAG, "Ignoring null intent to actionServiceExecute");
             return;
+        }
+
+        boolean acquireWakeLock = intent.getBooleanExtra("com.termux.RUN_COMMAND_WAKE_LOCK", false)
+            || intent.getBooleanExtra("com.termux.RUN_COMMAND_KEEP_ALIVE", false)
+            || intent.getBooleanExtra("com.termux.execute.wake_lock", false)
+            || intent.getBooleanExtra("com.termux.execute.keep_alive", false);
+        if (acquireWakeLock) {
+            actionAcquireWakeLock();
         }
 
         ExecutionCommand executionCommand = new ExecutionCommand(TermuxShellManager.getNextShellId());

@@ -17,7 +17,7 @@
         android:description="@string/permission_run_command_description"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/permission_run_command_label"
-        android:protectionLevel="dangerous" />
+        android:protectionLevel="signature|dangerous" />
 
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.INTERNET" />
@@ -195,7 +195,14 @@
 
         <service
             android:name=".app.TermuxService"
-            android:exported="false" />
+            android:exported="true"
+            android:permission="${TERMUX_PACKAGE_NAME}.permission.RUN_COMMAND">
+            <intent-filter>
+                <action android:name="${TERMUX_PACKAGE_NAME}.service_wake_lock" />
+                <action android:name="${TERMUX_PACKAGE_NAME}.service_wake_unlock" />
+                <action android:name="${TERMUX_PACKAGE_NAME}.service_stop" />
+            </intent-filter>
+        </service>
 
         <service
             android:name=".app.RunCommandService"
